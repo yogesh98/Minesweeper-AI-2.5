@@ -26,7 +26,7 @@ screen.fill(WHITE)
 pygame.display.flip()
 pygame.event.get()
 
-aaaaaaaaaaaaaa = 0
+aaaaaaaaaaaaaaDeleteLater = 0
 
 
 def basic_agent(game, choice_func):
@@ -124,30 +124,32 @@ def analyze_kb(game, kb, choice_func):
 
 
 def rand_choice(game, kb):
-    global aaaaaaaaaaaaaa
+    global aaaaaaaaaaaaaaDeleteLater
     while True:
         if game.game_over():
             break
         # picks random row and col
-        # row = random.randint(0, game._dim - 1)
-        # col = random.randint(0, game._dim - 1)
-        if aaaaaaaaaaaaaa == 0:
-            row = 0
-            col = 0
-        elif aaaaaaaaaaaaaa == 1:
-            row = 3
-            col = 3
-        elif aaaaaaaaaaaaaa == 2:
-            row = 1
-            col = 2
-        else:
-            row = random.randint(0, game._dim - 1)
-            col = random.randint(0, game._dim - 1)
+        row = random.randint(0, game._dim - 1)
+        col = random.randint(0, game._dim - 1)
+
+        # below was for debugging purposes
+        # if aaaaaaaaaaaaaaDeleteLater == 0:
+        #     row = 0
+        #     col = 0
+        # elif aaaaaaaaaaaaaaDeleteLater == 1:
+        #     row = 3
+        #     col = 3
+        # elif aaaaaaaaaaaaaaDeleteLater == 2:
+        #     row = 1
+        #     col = 2
+        # else:
+        #     row = random.randint(0, game._dim - 1)
+        #     col = random.randint(0, game._dim - 1)
 
         # checks to make sure random row and col is covered if so adds it to safe
         if kb.knowledge_base[row][col].covered and not kb.knowledge_base[row][col].mine:
             kb.safe.append(kb.knowledge_base[row][col])
-            aaaaaaaaaaaaaa = aaaaaaaaaaaaaa + 1
+            aaaaaaaaaaaaaaDeleteLater = aaaaaaaaaaaaaaDeleteLater + 1
             return
 def get_sections(kb_original):
     # creating sections, Sections are made from all the clues in unsafe -- If any 2 clues contain atleast
