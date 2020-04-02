@@ -149,9 +149,7 @@ def rand_choice(game, kb):
             kb.safe.append(kb.knowledge_base[row][col])
             aaaaaaaaaaaaaa = aaaaaaaaaaaaaa + 1
             return
-
-def min_cost(game, kb_original):
-    # TODO: Put in min cost stuff here (remove pass)
+def get_sections(kb_original):
     # creating sections, Sections are made from all the clues in unsafe -- If any 2 clues contain atleast
     # one of the same cells they are in the same section
 
@@ -179,61 +177,105 @@ def min_cost(game, kb_original):
         else:
             sections.append([current])
 
+    return sections
+
+def get_possible_mine_configs_for_section(section_original):
+    section = copy.deepcopy(section_original)
+    cells_in_section = []
+    max_mines = 0
+    mine_configs = []
+    for unsafe_list in section.unsafe:
+        max_mines = max_mines + unsafe_list[0]
+        cells_in_section = cells_in_section + unsafe_list[1:]
+
+    cells_in_section = list(set(cells_in_section))
+
+    if max_mines > len(cells_in_section):
+        max_mines = len(cells_in_section)
+
+    for num_set_as_mines in range(1, max_mines + 1):
+        combinations = itertools.combinations(cells_in_section, num_set_as_mines)
+        for combo in combinations:
+            section = copy.deepcopy(section_original)
+            for cell in combo:
+                section.update(cell.row, cell.col, -1, True)
+
+            solved = True
+            for i in range(len(section.unsafe)):
+                # Checking each list in Unsafe is now 0
+                if section.unsafe[i][0] != 0:
+                    solved = False
+
+            if solved:
+                mine_configs.append(combo)
+    for config in mine_configs:
+        print("\n")
+        for mine in config:
+            print(str(mine) + ", ", end=" ")
+    print("\n\n\n\n")
+
+    return (mine_configs, cells_in_section)
+
+def get_probability_for_section(section_original):
+    _returned = get_possible_mine_configs_for_section(section_original)
+    mine_configs = _returned[0]
+    cells_in_section = _returned[1]
+
+    num_configs = len(mine_configs)
+
+    probability_w_cell = []
+    for cell in cells_in_section:
+        count = 0
+        for config in mine_configs:
+            for mine in config:
+                if cell.compare(mine):
+                    count = count + 1
+                    break
+        probability = count / num_configs
+        probability_w_cell.append((probability, cell))
+
+    return probability_w_cell
+
+def get_all_probability(kb_original):
+    sections = get_sections(kb_original)
+
+    # convert sections into mini knowledgebases
     sections_as_kbs = []
     for section in sections:
         temp = KB(game)
         temp.manual_add_unsafe(section)
         sections_as_kbs.append(temp)
-
-    # Put this in get mine configuration function ---------------------------------------------------------------
-    # Figuring out all possible configuration of mines
+    all_probability = []
     for section_original in sections_as_kbs:
-        section = copy.deepcopy(section_original)
-        cells_in_section = []
-        max_mines = 0
-        mine_configs = []
-        for unsafe_list in section.unsafe:
-            max_mines = max_mines + unsafe_list[0]
-            cells_in_section = cells_in_section + unsafe_list[1:]
+        probability_w_cell = get_probability_for_section(section_original)
 
-        cells_in_section = list(set(cells_in_section))
+        for tup in probability_w_cell:
+            all_probability.append(tup)
+    return all_probability
 
-        if max_mines > len(cells_in_section):
-            max_mines = len(cells_in_section)
+def min_cost(game, kb_original):
+    probs = get_all_probability(kb_original)
 
-        for num_set_as_mines in range(1, max_mines + 1):
-            combinations = itertools.combinations(cells_in_section, num_set_as_mines)
-            for combo in combinations:
-                section = copy.deepcopy(section_original)
-                for cell in combo:
-                    section.update(cell.row, cell.col, -1, True)
+    if probs is None:
+        rand_choice(game, kb_original)
+        return
+    min_probability = 1.0
+    cells_w_least_prob = []
 
-                solved = True
-                for i in range(len(section.unsafe)):
-                    # Checking each list in Unsafe is now 0
-                    if section.unsafe[i][0] != 0:
-                            solved = False
+    for pc in probs:
+        prob = pc[0]
+        cell = pc[1]
+        if prob < min_probability:
+            cells_w_least_prob = [cell]
+            min_probability = prob
+        elif prob == min_probability:
+            cells_w_least_prob.append(cell)
 
-                if solved:
-                    mine_configs.append(combo)
-
-        for config in mine_configs:
-            print("\n")
-            for mine in config:
-                print(str(mine) + ", ", end=" ")
-    print("\n\n\n\n")
-
-    #TODO: Figured out how to get all possible mine configureations now gotta figure out chance it is a mine
-    # to do this make a set of all the possible cells that can be a mine from what was returned, then count the
-    # how many times a cell occurs in the list of possible configurations. Then probability is occurences/num_configs
-
-    # Put above in get mine configuration function ---------------------------------------------------------------
-
-    # If no probabilities can be derived reverts back to unsafe
-    rand_choice(game, kb_original)
-    # row = 0
-    # col = 0
-    # kb.safe.append(kb.knowledge_base[row][col])
+    if len(cells_w_least_prob) == 0:
+        rand_choice(game, kb_original)
+    else:
+        cell = random.choice(cells_w_least_prob)
+        kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 
 
 
