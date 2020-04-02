@@ -3,6 +3,7 @@
 # it will now do the specific function passed to the agent (rand_choice, min_risk, min_cost)
 import itertools
 import random
+import sys
 import pygame
 import copy
 from Minesweeper import Minesweeper
@@ -27,6 +28,8 @@ pygame.display.flip()
 pygame.event.get()
 
 aaaaaaaaaaaaaaDeleteLater = 0
+
+# sys.setrecursionlimit(1000000)
 
 
 def basic_agent(game, choice_func):
@@ -155,7 +158,7 @@ def get_sections(kb_original):
     # creating sections, Sections are made from all the clues in unsafe -- If any 2 clues contain atleast
     # one of the same cells they are in the same section
 
-    kb = copy.deepcopy(kb_original)
+    kb = kb_original #copy.deepcopy(kb_original)
     sections = []
     for current in kb.unsafe:
         current_cells = current[1:]
@@ -182,7 +185,11 @@ def get_sections(kb_original):
     return sections
 
 def get_possible_mine_configs_for_section(section_original):
-    section = copy.deepcopy(section_original)
+    # section = copy.deepcopy(section_original)
+
+    section = KB(game)
+    section.manual_add_unsafe(section_original.unsafe)
+
     cells_in_section = []
     max_mines = 0
     mine_configs = []
@@ -198,7 +205,8 @@ def get_possible_mine_configs_for_section(section_original):
     for num_set_as_mines in range(1, max_mines + 1):
         combinations = itertools.combinations(cells_in_section, num_set_as_mines)
         for combo in combinations:
-            section = copy.deepcopy(section_original)
+            section = KB(game)
+            section.manual_add_unsafe(section_original.unsafe)
             for cell in combo:
                 section.update(cell.row, cell.col, -1, True)
 
@@ -210,11 +218,11 @@ def get_possible_mine_configs_for_section(section_original):
 
             if solved:
                 mine_configs.append(combo)
-    for config in mine_configs:
-        print("\n")
-        for mine in config:
-            print(str(mine) + ", ", end=" ")
-    print("\n\n\n\n")
+    # for config in mine_configs:
+    #     print("\n")
+    #     for mine in config:
+    #         print(str(mine) + ", ", end=" ")
+    # print("\n\n\n\n")
 
     return (mine_configs, cells_in_section)
 
@@ -287,6 +295,7 @@ def min_risk(game, kb):
 
 # for graphics: will update full screen
 def game_full_update(game):
+    return
     game_updated = game.draw(screen_size)
     pygame.display.set_mode((game_updated.get_size()[0], game_updated.get_size()[1]))
     screen.blit(game_updated, ORIGIN)
@@ -295,6 +304,7 @@ def game_full_update(game):
 
 # for graphics: will update part of screen specified by the row and col
 def game_update(game, row, col):
+    return
     ret_draw = game.draw_single(screen_size, row, col)
     game_updated = ret_draw[0]
     img_size = ret_draw[1]
@@ -361,28 +371,48 @@ if __name__ == '__main__':
                     running = False
 
     elif ipt == 1:
-        pass
-        # size = 30
-        # density = 0
-        # total_score = 0
-        # while density <= 1:
-        #     num_tests = 100
-        #     for i in range(num_tests):
-        #         game = Minesweeper(size, int((size**2) * density))
-        #         game_full_update(game)
-        #         score = basic_agent(game)
-        #         total_score += score
-        #     print(str(density) + ", " + str(total_score/num_tests))
-        #     total_score = 0
-        #     density += 0.05
-        #     density = round(density, 2)
-        #
-        # running = True
-        # while running:
-        #     for event in pygame.event.get():
-        #         # print(event)
-        #         if event.type == pygame.QUIT:
-        #             running = False
+        is_set = False
+        while not is_set:
+            try:
+                cfunc = int(input("To run testing using random choice enter 0"
+                                  "\nTo run testing using min cost enter 1"
+                                  "\nTo run testing using min risk enter 2 \n"))
+                is_set = True
+            except ValueError:
+                print("Incorrect Entry")
+
+        size = 30
+        density = 0
+        total_score = 0
+        while density <= 1:
+            num_tests = 100
+            for i in range(num_tests):
+                game = Minesweeper(size, int((size**2) * density))
+                game_full_update(game)
+
+                if cfunc == 0:
+                    score = basic_agent(game, rand_choice)
+                elif cfunc == 1:
+                    score = basic_agent(game, min_cost)
+                elif cfunc == 2:
+                    score = basic_agent(game, min_risk)
+                else:
+                    print("Quiting")
+                    pygame.quit()
+                    quit()
+
+                total_score += score
+            print(str(density) + ", " + str(total_score/num_tests))
+            total_score = 0
+            density += 0.05
+            density = round(density, 2)
+
+        running = True
+        while running:
+            for event in pygame.event.get():
+                # print(event)
+                if event.type == pygame.QUIT:
+                    running = False
     else:
         print("Quiting")
 
