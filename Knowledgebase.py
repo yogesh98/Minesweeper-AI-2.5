@@ -143,6 +143,13 @@ class A2:
                     lst.append(neighbor)
             self.unsafe.append(lst)
 
+    #function to manually add cells to unsafe
+    def manual_add_unsafe(self, unsafe_lists):
+        for unsafe_list in unsafe_lists:
+            to_add = [unsafe_list[0]]
+            for cell in unsafe_list[1:]:
+                to_add.append(self.knowledge_base[cell.row][cell.col])
+            self.unsafe.append(to_add)
 class A2Cell:
     def __init__(self, row, col, covered, mine, clue):
         self.row = row
@@ -152,6 +159,11 @@ class A2Cell:
         self.clue = clue
         self.neighbors = []
 
+    def __str__(self):
+        return "(" + str(self.row) + " ," + str(self.col) + ")"
+
+    def compare(self, other):
+        return self.row == other.row and self.col == other.col #and self.neighbors == other.neighbors and self.mine == other.mine and self.clue == other.clue
 # function to find intersection of 2 lists
 def intersection(list1, list2):
     list2_as_set = set(list2)

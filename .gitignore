@@ -5,3 +5,4 @@ pyvenv.cfg
 .DS_Store
 include/
 __pycache__/
+scripts/
