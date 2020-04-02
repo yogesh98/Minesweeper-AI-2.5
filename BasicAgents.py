@@ -1,6 +1,7 @@
 # This file contains Agent 2 from project 2 without any improvements
 # In the place where it would have picked a random choice from project 2
 # it will now do the specific function passed to the agent (rand_choice, min_risk, min_cost)
+import itertools
 import random
 import pygame
 import copy
@@ -189,73 +190,42 @@ def min_cost(game, kb_original):
     for section_original in sections_as_kbs:
         section = copy.deepcopy(section_original)
         cells_in_section = []
+        max_mines = 0
+        mine_configs = []
         for unsafe_list in section.unsafe:
+            max_mines = max_mines + unsafe_list[0]
             cells_in_section = cells_in_section + unsafe_list[1:]
 
         cells_in_section = list(set(cells_in_section))
 
-        mine_configs = list()
-        while len(cells_in_section) > 0:
-            section = copy.deepcopy(section_original)
-            simulated_mine_list = []
-            while len(section.unsafe) > 0:
-                current = section.knowledge_base[cells_in_section[0].row][cells_in_section[0].col]
-                for clue in section.unsafe:
-                    if current in clue[1:]:
-                        cells_in_section.pop(0)
-                        simulated_mine_list.append(current)
-                        break
-                section.update(current.row, current.col, -1, True)
+        if max_mines > len(cells_in_section):
+            max_mines = len(cells_in_section)
 
-                # Variable to tell if an action has been made.
-                action = True
+        for num_set_as_mines in range(1, max_mines + 1):
+            combinations = itertools.combinations(cells_in_section, num_set_as_mines)
+            for combo in combinations:
+                section = copy.deepcopy(section_original)
+                for cell in combo:
+                    section.update(cell.row, cell.col, -1, True)
 
-                # knowledgebase analysis will happen again with the new deductions from each action
-                while action:
-                    action = False
-                    # List of Lists in unsafe to be removed
-                    remove_after = []
+                solved = True
+                for i in range(len(section.unsafe)):
+                    # Checking each list in Unsafe is now 0
+                    if section.unsafe[i][0] != 0:
+                            solved = False
 
-                    # List of cells that have been flagged and need to be removed
-                    update_as_flagged = []
+                if solved:
+                    mine_configs.append(combo)
 
-                    # Using deductions made in knowledgebase to make choice on which cells can be querried
-                    for i in range(len(section.unsafe)):
-                        # Checking each list in Unsafe and seeing if there is 0 mines within those cells
-                        if section.unsafe[i][0] == 0:
-                            action = True
-                            # if there are no mines within those cells it will add them to safe and add them
-                            # to a remove_after list to remove them. Can not remove on the spot because it will mess up the for loop
-                            remove_after.append(section.unsafe[i])
-                            for j in range(1, len(section.unsafe[i])):
-                                section.safe.append(section.unsafe[i][j])
-
-                        # If there is still mines within those cells it will check if the number of cells is equal to the number of
-                        # mines. If so it will flag all those cells
-                        elif len(section.unsafe[i][1:]) == section.unsafe[i][0]:
-                            action = True
-                            # adds to remove after list
-                            remove_after.append(section.unsafe[i])
-                            # for each cell in the list it will flag those cells
-                            for cell in section.unsafe[i][1:]:
-                                simulated_mine_list.append(cell)
-                                # Add cell to a list so that the KB can be updated
-                                update_as_flagged.append(cell)
-                    # Removing all lists in unsafe that need to be removed
-                    for i in remove_after:
-                        section.unsafe.remove(i)
-
-                    # Updates KB with cells that have been flagged and makes new deductions based on these
-                    for cell in update_as_flagged:
-                        section.update(cell.row, cell.col, -1, True)
-                    section.simplify()
-            mine_configs.append(simulated_mine_list)
         for config in mine_configs:
             print("\n")
             for mine in config:
                 print(str(mine) + ", ", end=" ")
     print("\n\n\n\n")
 
+    #TODO: Figured out how to get all possible mine configureations now gotta figure out chance it is a mine
+    # to do this make a set of all the possible cells that can be a mine from what was returned, then count the
+    # how many times a cell occurs in the list of possible configurations. Then probability is occurences/num_configs
 
     # Put above in get mine configuration function ---------------------------------------------------------------
 
