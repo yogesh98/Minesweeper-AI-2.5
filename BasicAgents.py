@@ -289,9 +289,17 @@ def min_cost(game, kb_original):
 
 
 
-def min_risk(game, kb):
+def min_risk(game, kb_original):
     # TODO: Put in min risk stuff here (remove pass)
-    pass
+    probs = get_all_probability(kb_original)
+
+    if probs is None:
+        rand_choice(game, kb_original)
+        return
+    min_probability = 1.0
+    cells_w_most_prob = []
+
+
 
 # for graphics: will update full screen
 def game_full_update(game):
