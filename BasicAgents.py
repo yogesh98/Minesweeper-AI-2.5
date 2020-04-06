@@ -28,11 +28,16 @@ pygame.display.flip()
 pygame.event.get()
 
 aaaaaaaaaaaaaaDeleteLater = 0
+decision_func_counter = 0
 
 # sys.setrecursionlimit(1000000)
 
 
 def basic_agent(game, choice_func):
+    # for analysis purposes keeps track of how many times the choice func needed to be used
+    global decision_func_counter
+    decision_func_counter = 0
+
     # initializing knowledge base
     knowledge_base = KB(game)
 
@@ -40,7 +45,7 @@ def basic_agent(game, choice_func):
     game_over = False
 
     # Picks first move
-    analyze_kb(game, knowledge_base, choice_func)
+    rand_choice(game, knowledge_base)
 
     # game loop, queries till game is over
     while not game_over:
@@ -124,10 +129,11 @@ def analyze_kb(game, kb, choice_func):
     # it will do passed function (rand choice, min cost, or min risk)
     if len(kb.safe) == 0:
         choice_func(game, kb)
+        global decision_func_counter
+        decision_func_counter += 1
 
 
 def rand_choice(game, kb):
-    global aaaaaaaaaaaaaaDeleteLater
     while True:
         if game.game_over():
             break
@@ -152,7 +158,6 @@ def rand_choice(game, kb):
         # checks to make sure random row and col is covered if so adds it to safe
         if kb.knowledge_base[row][col].covered and not kb.knowledge_base[row][col].mine:
             kb.safe.append(kb.knowledge_base[row][col])
-            aaaaaaaaaaaaaaDeleteLater = aaaaaaaaaaaaaaDeleteLater + 1
             return
 def get_sections(kb_original):
     # creating sections, Sections are made from all the clues in unsafe -- If any 2 clues contain atleast
@@ -287,22 +292,144 @@ def min_cost(game, kb_original):
         cell = random.choice(cells_w_least_prob)
         kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 
+#TODO: Figure out why this always returns 0, try to fix without messing everything else up
+# Fix is in knowledge base for sure but messing things up in there will mess up everything else
+# fix may be to copy entire knowledgebase not just the unsafe lists (This will work pretty sure)
+# will just add lots of time to the testing proccess but whatever lol
+def get_expected_knowledge(kb_original, type, cell):
 
+    kb = KB(game)
+    kb.manual_add_unsafe(kb_original.unsafe)
+
+    expected_knowledge = 0
+
+    if type == "R":
+
+        kb.update(cell.row, cell.col, -1, True)
+
+        action = True
+        # knowledgebase analysis will happen again with the new deductions from each action
+        while action:
+            action = False
+            # List of Lists in unsafe to be removed
+            remove_after = []
+
+            # List of cells that have been flagged and need to be removed
+            update_as_flagged = []
+
+            # Using deductions made in knowledgebase to make choice on which cells can be querried
+            for i in range(len(kb.unsafe)):
+                # Checking each list in Unsafe and seeing if there is 0 mines within those cells
+                if kb.unsafe[i][0] == 0:
+                    action = True
+                    # if there are no mines within those cells it will add them to safe and add them
+                    # to a remove_after list to remove them. Can not remove on the spot because it will mess up the for loop
+                    remove_after.append(kb.unsafe[i])
+                    for j in range(1, len(kb.unsafe[i])):
+                        expected_knowledge += 1
+                        kb.safe.append(kb.unsafe[i][j])
+
+                # If there is still mines within those cells it will check if the number of cells is equal to the number of
+                # mines. If so it will flag all those cells
+                elif len(kb.unsafe[i][1:]) == kb.unsafe[i][0]:
+                    action = True
+                    # adds to remove after list
+                    remove_after.append(kb.unsafe[i])
+                    # for each cell in the list it will flag those cells
+                    for cell in kb.unsafe[i][1:]:
+                        expected_knowledge += 1
+                        # Add cell to a list so that the KB can be updated
+                        update_as_flagged.append(cell)
+            # Removing all lists in unsafe that need to be removed
+            for i in remove_after:
+                kb.unsafe.remove(i)
+
+            # Updates KB with cells that have been flagged and makes new deductions based on these
+            for cell in update_as_flagged:
+                kb.update(cell.row, cell.col, -1, True)
+    elif type == "S":
+
+        kb.update(cell.row, cell.col, -1, False)
+
+        action = True
+        # knowledgebase analysis will happen again with the new deductions from each action
+        while action:
+            action = False
+            # List of Lists in unsafe to be removed
+            remove_after = []
+
+            # List of cells that have been flagged and need to be removed
+            update_as_flagged = []
+
+            # Using deductions made in knowledgebase to make choice on which cells can be querried
+            for i in range(len(kb.unsafe)):
+                # Checking each list in Unsafe and seeing if there is 0 mines within those cells
+                if kb.unsafe[i][0] == 0:
+                    action = True
+                    # if there are no mines within those cells it will add them to safe and add them
+                    # to a remove_after list to remove them. Can not remove on the spot because it will mess up the for loop
+                    remove_after.append(kb.unsafe[i])
+                    for j in range(1, len(kb.unsafe[i])):
+                        expected_knowledge += 1
+                        kb.safe.append(kb.unsafe[i][j])
+
+                # If there is still mines within those cells it will check if the number of cells is equal to the number of
+                # mines. If so it will flag all those cells
+                elif len(kb.unsafe[i][1:]) == kb.unsafe[i][0]:
+                    action = True
+                    # adds to remove after list
+                    remove_after.append(kb.unsafe[i])
+                    # for each cell in the list it will flag those cells
+                    for cell in kb.unsafe[i][1:]:
+                        expected_knowledge += 1
+                        # Add cell to a list so that the KB can be updated
+                        update_as_flagged.append(cell)
+            # Removing all lists in unsafe that need to be removed
+            for i in remove_after:
+                kb.unsafe.remove(i)
+
+            # Updates KB with cells that have been flagged and makes new deductions based on these
+            for cell in update_as_flagged:
+                kb.update(cell.row, cell.col, -1, True)
+
+    return expected_knowledge
 
 def min_risk(game, kb_original):
-    # TODO: Put in min risk stuff here (remove pass)
     probs = get_all_probability(kb_original)
 
     if probs is None:
         rand_choice(game, kb_original)
         return
-    min_probability = 1.0
-    cells_w_most_prob = []
+
+    cells_w_min_risk = []
+    max_expected_knowledge = -1
+
+    for pc in probs:
+        q = pc[0]
+        cell = pc[1]
+
+        R = get_expected_knowledge(kb_original, "R", cell)
+        S = get_expected_knowledge(kb_original, "S", cell)
+
+        expected_knowledge = (q*R) + ((1 - q) * S)
+
+        if expected_knowledge > max_expected_knowledge:
+            max_expected_knowledge = expected_knowledge
+            cells_w_min_risk = [cell]
+        elif expected_knowledge == max_expected_knowledge:
+            cells_w_min_risk.append(cell)
+
+    if len(cells_w_min_risk) == 0:
+        rand_choice(game, kb_original)
+    else:
+        cell = random.choice(cells_w_min_risk)
+        kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 
 
 
 # for graphics: will update full screen
 def game_full_update(game):
+    return
     game_updated = game.draw(screen_size)
     pygame.display.set_mode((game_updated.get_size()[0], game_updated.get_size()[1]))
     screen.blit(game_updated, ORIGIN)
@@ -311,6 +438,7 @@ def game_full_update(game):
 
 # for graphics: will update part of screen specified by the row and col
 def game_update(game, row, col):
+    return
     ret_draw = game.draw_single(screen_size, row, col)
     game_updated = ret_draw[0]
     img_size = ret_draw[1]
@@ -386,10 +514,18 @@ if __name__ == '__main__':
                 is_set = True
             except ValueError:
                 print("Incorrect Entry")
-
+        is_set = False
+        while not is_set:
+            try:
+                metric = int(input("To measure Density VS Score enter 0"
+                                  "\nTo measure Density VS Average Cost/Risk enter 1\n"))
+                is_set = True
+            except ValueError:
+                print("Incorrect Entry")
         size = 30
-        density = 1
+        density = 0
         total_score = 0
+        total_choice = 0
         while density <= 1:
             num_tests = 100
             for i in range(num_tests):
@@ -406,11 +542,15 @@ if __name__ == '__main__':
                     print("Quiting")
                     pygame.quit()
                     quit()
-
+                total_choice += decision_func_counter
                 total_score += score
-            print(str(density) + ", " + str(total_score/num_tests))
+            if metric == 0:
+                print(str(density) + ", " + str(total_score/num_tests))
+            elif metric == 1:
+                print(str(density) + ", " + str(total_choice/num_tests))
             total_score = 0
-            density -= 0.05
+            total_choice = 0
+            density += 0.05
             density = round(density, 2)
 
         running = True
@@ -425,12 +565,14 @@ if __name__ == '__main__':
     pygame.quit()
     quit()
 
-
-    # size = 30
-    # density = .5
-    # total_score = 0
-    # num_tests = 100
     # cfunc = 1
+    # metric = 1
+    # size = 30
+    # density = 1
+    # total_score = 0
+    # total_choice = 0
+    # num_tests = 100
+    # print("Density VS Average Cost -- " + str(density))
     # for i in range(num_tests):
     #     game = Minesweeper(size, int((size ** 2) * density))
     #     game_full_update(game)
@@ -445,12 +587,14 @@ if __name__ == '__main__':
     #         print("Quiting")
     #         pygame.quit()
     #         quit()
-    #
+    #     total_choice += decision_func_counter
     #     total_score += score
-    # print(str(density) + ", " + str(total_score / num_tests))
+    # if metric == 0:
+    #     print(str(density) + ", " + str(total_score / num_tests))
+    # elif metric == 1:
+    #     print(str(density) + ", " + str(total_choice / num_tests))
     # total_score = 0
-    # density -= 0.05
-    # density = round(density, 2)
+    # total_choice = 0
     #
     # running = True
     # while running:
