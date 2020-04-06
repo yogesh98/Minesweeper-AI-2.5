@@ -298,8 +298,11 @@ def min_cost(game, kb_original):
 # will just add lots of time to the testing proccess but whatever lol
 def get_expected_knowledge(kb_original, type, cell):
 
+    # kb = copy.deepcopy(kb_original)
+
     kb = KB(game)
-    kb.manual_add_unsafe(kb_original.unsafe)
+    kb.copy_kb(kb_original)
+    # kb.manual_add_unsafe(kb_original.unsafe)
 
     expected_knowledge = 0
 
@@ -429,7 +432,6 @@ def min_risk(game, kb_original):
 
 # for graphics: will update full screen
 def game_full_update(game):
-    return
     game_updated = game.draw(screen_size)
     pygame.display.set_mode((game_updated.get_size()[0], game_updated.get_size()[1]))
     screen.blit(game_updated, ORIGIN)
@@ -438,7 +440,6 @@ def game_full_update(game):
 
 # for graphics: will update part of screen specified by the row and col
 def game_update(game, row, col):
-    return
     ret_draw = game.draw_single(screen_size, row, col)
     game_updated = ret_draw[0]
     img_size = ret_draw[1]

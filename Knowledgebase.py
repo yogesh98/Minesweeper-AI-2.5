@@ -132,7 +132,9 @@ class A2:
             for neighbor in current.neighbors:
                 if neighbor.covered and neighbor not in self.safe:
                     self.safe.append(neighbor)
-
+        # if clue is -1 it does nothing, this is for the min risk agent
+        elif clue == -1:
+            pass
         # if the clue is not 0 it will create a new entry in the unsafe list
         else:
             lst = [clue]
@@ -150,6 +152,22 @@ class A2:
             for cell in unsafe_list[1:]:
                 to_add.append(self.knowledge_base[cell.row][cell.col])
             self.unsafe.append(to_add)
+
+    def copy_kb(self, kb):
+        for row in kb.knowledge_base:
+            for cell in row:
+                current = self.knowledge_base[cell.row][cell.col]
+                current.covered = cell.covered
+                current.mine = cell.mine
+                current.clue = cell.clue
+                for neighbor in cell.neighbors:
+                    current.neighbors.append(self.knowledge_base[neighbor.row][neighbor.col])
+
+        for cell in kb.safe:
+            self.safe.append(self.knowledge_base[cell.row][cell.col])
+
+        self.manual_add_unsafe(kb.unsafe)
+
 class A2Cell:
     def __init__(self, row, col, covered, mine, clue):
         self.row = row

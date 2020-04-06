@@ -44,7 +44,7 @@ class Minesweeper:
                     self.__mines.append(self.__env[row][col])
                     mine_set = True
 
-        #below is for debugging sets mines only in 1,1 and 2,2
+        # below is for debugging sets mines only in 1,1 and 2,2
         # self.__env[1][1].mine = True
         # self.__mines.append(self.__env[1][1])
         # self.__env[2][2].mine = True
