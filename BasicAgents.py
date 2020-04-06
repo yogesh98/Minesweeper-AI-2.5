@@ -223,11 +223,11 @@ def get_possible_mine_configs_for_section(section_original):
 
             if solved:
                 mine_configs.append(combo)
-    # for config in mine_configs:
-    #     print("\n")
-    #     for mine in config:
-    #         print(str(mine) + ", ", end=" ")
-    # print("\n\n\n\n")
+    for config in mine_configs:
+        print("\n")
+        for mine in config:
+            print(str(mine) + ", ", end=" ")
+    print("\n\n\n\n")
 
     return (mine_configs, cells_in_section)
 
@@ -237,7 +237,8 @@ def get_probability_for_section(section_original):
     cells_in_section = _returned[1]
 
     num_configs = len(mine_configs)
-
+    if num_configs == 0:
+        return []
     probability_w_cell = []
     for cell in cells_in_section:
         count = 0
@@ -292,10 +293,6 @@ def min_cost(game, kb_original):
         cell = random.choice(cells_w_least_prob)
         kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 
-#TODO: Figure out why this always returns 0, try to fix without messing everything else up
-# Fix is in knowledge base for sure but messing things up in there will mess up everything else
-# fix may be to copy entire knowledgebase not just the unsafe lists (This will work pretty sure)
-# will just add lots of time to the testing proccess but whatever lol
 def get_expected_knowledge(kb_original, type, cell):
 
     # kb = copy.deepcopy(kb_original)
@@ -428,8 +425,70 @@ def min_risk(game, kb_original):
         cell = random.choice(cells_w_min_risk)
         kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 
+def improved_min_risk(game, kb_original):
+    if game.game_over():
+        return
 
+    probs = get_all_probability(kb_original)
 
+    if probs is None:
+        rand_choice(game, kb_original)
+        return
+
+    combo_w_min_risk = []
+    max_expected_knowledge = -1
+    for i in range(1, 3):
+        combinations = itertools.combinations(probs, i)
+        total_expected_knowledge = -1
+        combo = None
+        for combo in combinations:
+            for pc in combo:
+                q = pc[0]
+                cell = pc[1]
+
+                R = get_expected_knowledge(kb_original, "R", cell)
+                S = get_expected_knowledge(kb_original, "S", cell)
+
+                expected_knowledge = (q * R) + ((1 - q) * S)
+                total_expected_knowledge += expected_knowledge
+
+        if total_expected_knowledge > max_expected_knowledge:
+            max_expected_knowledge = total_expected_knowledge
+            combo_w_min_risk = [combo]
+        elif total_expected_knowledge == max_expected_knowledge:
+            if combo is not None:
+                combo_w_min_risk.append(combo)
+
+        if len(combo_w_min_risk) == 0:
+            rand_choice(game, kb_original)
+        else:
+            combo = random.choice(combo_w_min_risk)
+            cell = random.choice(combo)[1]
+            kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
+
+def improved_min_cost(game, kb_original, num_mines):
+    probs = get_all_probability(kb_original)
+
+    if probs is None:
+        rand_choice(game, kb_original)
+        return
+    min_probability = 1.0
+    cells_w_least_prob = []
+
+    for pc in probs:
+        prob = pc[0]
+        cell = pc[1]
+        if prob < min_probability:
+            cells_w_least_prob = [cell]
+            min_probability = prob
+        elif prob == min_probability:
+            cells_w_least_prob.append(cell)
+
+    if len(cells_w_least_prob) == 0:
+        rand_choice(game, kb_original)
+    else:
+        cell = random.choice(cells_w_least_prob)
+        kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 # for graphics: will update full screen
 def game_full_update(game):
     game_updated = game.draw(screen_size)
@@ -462,7 +521,8 @@ if __name__ == '__main__':
             try:
                 cfunc = int(input("To run the game using random choice enter 0"
                                 "\nTo run the game using min cost enter 1"
-                                "\nTo run the game using min risk enter 2 \n"))
+                                "\nTo run the game using min risk enter 2"
+                                "\nTo run the game using Improved min risk enter 3 \n"))
                 is_set = True
             except ValueError:
                 print("Incorrect Entry")
@@ -491,6 +551,8 @@ if __name__ == '__main__':
             score = basic_agent(game, min_cost)
         elif cfunc == 2:
             score = basic_agent(game, min_risk)
+        elif cfunc == 3:
+            score = basic_agent(game, improved_min_risk)
         else:
             print("Quiting")
             pygame.quit()
@@ -566,14 +628,17 @@ if __name__ == '__main__':
     pygame.quit()
     quit()
 
-    # cfunc = 1
-    # metric = 1
+    # cfunc = 2
+    # metric = 0
     # size = 30
     # density = 1
     # total_score = 0
     # total_choice = 0
     # num_tests = 100
-    # print("Density VS Average Cost -- " + str(density))
+    # if metric == 0:
+    #     print("Density VS Score -- " + str(density))
+    # else:
+    #     print("Density VS Average Risk -- " + str(density))
     # for i in range(num_tests):
     #     game = Minesweeper(size, int((size ** 2) * density))
     #     game_full_update(game)
