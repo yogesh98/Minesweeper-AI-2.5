@@ -490,6 +490,51 @@ def improved_min_risk(game, kb_original):
             kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 
 def improved_min_cost(game, kb_original):
+    probs = get_all_probability(game, kb_original)
+
+    if probs is None:
+        rand_choice(game, kb_original)
+        return
+    min_probability = 1.0
+    cells_w_least_prob = []
+
+    for pc in probs:
+        prob = pc[0]
+        cell = pc[1]
+        if prob < min_probability:
+            cells_w_least_prob = [pc]
+            min_probability = prob
+        elif prob == min_probability:
+            cells_w_least_prob.append(pc)
+
+    if len(cells_w_least_prob) == 0:
+        rand_choice(game, kb_original)
+    else:
+        cells_w_min_risk = []
+        max_expected_knowledge = -1
+
+        for pc in cells_w_least_prob:
+            q = pc[0]
+            cell = pc[1]
+
+            R = get_expected_knowledge(game, kb_original, "R", [cell])
+            S = get_expected_knowledge(game, kb_original, "S", [cell])
+
+            expected_knowledge = (q * R) + ((1 - q) * S)
+
+            if expected_knowledge > max_expected_knowledge:
+                max_expected_knowledge = expected_knowledge
+                cells_w_min_risk = [cell]
+            elif expected_knowledge == max_expected_knowledge:
+                cells_w_min_risk.append(cell)
+
+        if len(cells_w_min_risk) == 0:
+            rand_choice(game, kb_original)
+        else:
+            cell = random.choice(cells_w_min_risk)
+            kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
+
+def improved_min_cost_w_mines(game, kb_original):
     global mines
     num_mines = game._num_mines
     mines_found = len(mines)
@@ -543,11 +588,10 @@ def test(density):
     density_v_score = []
     density_v_average = []
     for i in range(num_tests):
-        print(i)
         game = Minesweeper(size, int((size ** 2) * density))
         game_full_update(game)
 
-        score = basic_agent(game, min_risk)
+        score = basic_agent(game, improved_min_risk)
 
         total_choice += decision_func_counter
         total_score += score
@@ -555,7 +599,7 @@ def test(density):
 
     score = total_score / num_tests
     average = total_choice / num_tests
-    print("Improved Min Cost " + str(density) + "\n"
+    print("Improved Min Risk " + str(density) + "\n"
           "Density VS Score -- " + str(density) + "\n" +
           str(density) + ", " + str(score) + "\n" +
           "Density VS Average Risk -- " + str(density) + "\n" +
@@ -569,22 +613,26 @@ def test(density):
 
 if __name__ == '__main__':
 
+    # test(density)
+    # density = 2
+
     # density = 0
     # pros = []
     # while density <= 1:
-    #     # test(density)
     #     p = Process(target=test, args=(density,))
     #     p.start()
     #     pros.append(p)
-    #     # density += .05
-    #     # density = round(density, 2)
-    #     density = 2
-    # for p in pros:
-    #     p.join()
+    #     density += .05
+    #     density = round(density, 2)
+    # while len(pros) != 0:
+    #     for p in pros:
+    #         p.join(2)
+    #         if p.exitcode is not None:
+    #             pros.remove(p)
     #
     # pygame.quit()
     # quit()
-
+    #
     try:
         ipt = int(input("To run a single game of minesweeper enter 0 "
                         "otherwise to run our testing method to figure out success rate per density enter 1 \n"))
