@@ -34,21 +34,21 @@ class Minesweeper:
                 self.__env[row].append(Minecell())
 
         # # setting mines in random places
-        # for i in range(num_mines):
-        #     mine_set = False
-        #     while not mine_set:
-        #         row = randint(0, dim-1)
-        #         col = randint(0, dim-1)
-        #         if not self.__env[row][col].mine:
-        #             self.__env[row][col].mine = True
-        #             self.__mines.append(self.__env[row][col])
-        #             mine_set = True
+        for i in range(num_mines):
+            mine_set = False
+            while not mine_set:
+                row = randint(0, dim-1)
+                col = randint(0, dim-1)
+                if not self.__env[row][col].mine:
+                    self.__env[row][col].mine = True
+                    self.__mines.append(self.__env[row][col])
+                    mine_set = True
 
         # below is for debugging sets mines only in 1,1 and 2,2
-        self.__env[1][1].mine = True
-        self.__mines.append(self.__env[1][1])
-        self.__env[2][2].mine = True
-        self.__mines.append(self.__env[2][2])
+        # self.__env[1][1].mine = True
+        # self.__mines.append(self.__env[1][1])
+        # self.__env[2][2].mine = True
+        # self.__mines.append(self.__env[2][2])
 
         # Setting clue for each cell
         for row in range(dim):

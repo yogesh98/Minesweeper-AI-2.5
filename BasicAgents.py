@@ -8,6 +8,7 @@ import pygame
 import copy
 from Minesweeper import Minesweeper
 from Knowledgebase import A2 as KB
+from multiprocessing import Process
 
 # Color tuples for pygame
 WHITE = (255, 255, 255)
@@ -27,13 +28,15 @@ screen.fill(WHITE)
 pygame.display.flip()
 pygame.event.get()
 
-aaaaaaaaaaaaaaDeleteLater = 0
 decision_func_counter = 0
+mines = []
 
 # sys.setrecursionlimit(1000000)
 
 
 def basic_agent(game, choice_func):
+    global mines
+    mines = []
     # for analysis purposes keeps track of how many times the choice func needed to be used
     global decision_func_counter
     decision_func_counter = 0
@@ -64,6 +67,9 @@ def basic_agent(game, choice_func):
 
             # Updating Knowledgebase (consists of updating information about querried cells and making deductions)
             knowledge_base.update(cell.row, cell.col, clue[1], clue[0])
+
+            if clue[0]:
+                mines.append(cell)
 
             # Using Deductions to add safe cells to safe
             analyze_kb(game, knowledge_base, choice_func)
@@ -123,6 +129,8 @@ def analyze_kb(game, kb, choice_func):
 
         # Updates KB with cells that have been flagged and makes new deductions based on these
         for cell in update_as_flagged:
+            global mines
+            mines.append(cell)
             kb.update(cell.row, cell.col, -1, True)
 
     # If after knowledgebase analysis there are no safe cells
@@ -189,50 +197,91 @@ def get_sections(kb_original):
 
     return sections
 
-def get_possible_mine_configs_for_section(section_original):
-    # section = copy.deepcopy(section_original)
+def get_possible_mine_configs_for_section(game ,section_original, mines_in_game = None, mines_found = None):
+    if mines_in_game is None:
+        # section = copy.deepcopy(section_original)
 
-    section = KB(game)
-    section.manual_add_unsafe(section_original.unsafe)
+        section = KB(game)
+        section.manual_add_unsafe(section_original.unsafe)
 
-    cells_in_section = []
-    max_mines = 0
-    mine_configs = []
-    for unsafe_list in section.unsafe:
-        max_mines = max_mines + unsafe_list[0]
-        cells_in_section = cells_in_section + unsafe_list[1:]
+        cells_in_section = []
+        max_mines = 0
+        mine_configs = []
+        for unsafe_list in section.unsafe:
+            max_mines = max_mines + unsafe_list[0]
+            cells_in_section = cells_in_section + unsafe_list[1:]
 
-    cells_in_section = list(set(cells_in_section))
+        cells_in_section = list(set(cells_in_section))
 
-    if max_mines > len(cells_in_section):
-        max_mines = len(cells_in_section)
+        if max_mines > len(cells_in_section):
+            max_mines = len(cells_in_section)
 
-    for num_set_as_mines in range(1, max_mines + 1):
-        combinations = itertools.combinations(cells_in_section, num_set_as_mines)
-        for combo in combinations:
-            section = KB(game)
-            section.manual_add_unsafe(section_original.unsafe)
-            for cell in combo:
-                section.update(cell.row, cell.col, -1, True)
+        for num_set_as_mines in range(1, max_mines + 1):
+            combinations = itertools.combinations(cells_in_section, num_set_as_mines)
+            for combo in combinations:
+                section = KB(game)
+                section.manual_add_unsafe(section_original.unsafe)
+                for cell in combo:
+                    section.update(cell.row, cell.col, -1, True)
 
-            solved = True
-            for i in range(len(section.unsafe)):
-                # Checking each list in Unsafe is now 0
-                if section.unsafe[i][0] != 0:
-                    solved = False
+                solved = True
+                for i in range(len(section.unsafe)):
+                    # Checking each list in Unsafe is now 0
+                    if section.unsafe[i][0] != 0:
+                        solved = False
 
-            if solved:
-                mine_configs.append(combo)
-    for config in mine_configs:
-        print("\n")
-        for mine in config:
-            print(str(mine) + ", ", end=" ")
-    print("\n\n\n\n")
+                if solved:
+                    mine_configs.append(combo)
+        # for config in mine_configs:
+        #     print("\n")
+        #     for mine in config:
+        #         print(str(mine) + ", ", end=" ")
+        # print("\n\n\n\n")
 
-    return (mine_configs, cells_in_section)
+        return (mine_configs, cells_in_section)
+    else:
+        # section = copy.deepcopy(section_original)
 
-def get_probability_for_section(section_original):
-    _returned = get_possible_mine_configs_for_section(section_original)
+        section = KB(game)
+        section.manual_add_unsafe(section_original.unsafe)
+
+        cells_in_section = []
+        max_mines = mines_in_game - mines_found
+        mine_configs = []
+        for unsafe_list in section.unsafe:
+            max_mines = max_mines + unsafe_list[0]
+            cells_in_section = cells_in_section + unsafe_list[1:]
+
+        cells_in_section = list(set(cells_in_section))
+
+        if max_mines > len(cells_in_section):
+            max_mines = len(cells_in_section)
+
+        for num_set_as_mines in range(1, max_mines + 1):
+            combinations = itertools.combinations(cells_in_section, num_set_as_mines)
+            for combo in combinations:
+                section = KB(game)
+                section.manual_add_unsafe(section_original.unsafe)
+                for cell in combo:
+                    section.update(cell.row, cell.col, -1, True)
+
+                solved = True
+                for i in range(len(section.unsafe)):
+                    # Checking each list in Unsafe is now 0
+                    if section.unsafe[i][0] != 0:
+                        solved = False
+
+                if solved:
+                    mine_configs.append(combo)
+        # for config in mine_configs:
+        #     print("\n")
+        #     for mine in config:
+        #         print(str(mine) + ", ", end=" ")
+        # print("\n\n\n\n")
+
+        return (mine_configs, cells_in_section)
+def get_probability_for_section(game, section_original):
+    _returned = get_possible_mine_configs_for_section(game, section_original)
     mine_configs = _returned[0]
     cells_in_section = _returned[1]
 
@@ -252,7 +301,8 @@ def get_probability_for_section(section_original):
 
     return probability_w_cell
 
-def get_all_probability(kb_original):
+def get_all_probability(game, kb_original, mines_in_game = None, mines_found = None):
+
     sections = get_sections(kb_original)
 
     # convert sections into mini knowledgebases
@@ -263,14 +313,26 @@ def get_all_probability(kb_original):
         sections_as_kbs.append(temp)
     all_probability = []
     for section_original in sections_as_kbs:
-        probability_w_cell = get_probability_for_section(section_original)
+        probability_w_cell = get_probability_for_section(game, section_original)
 
         for tup in probability_w_cell:
             all_probability.append(tup)
+    cells_w_clues = len(all_probability)
+    if mines_in_game is not None:
+
+        for row in kb_original.knowledge_base:
+            if mines_in_game - mines_found == 0:
+                break
+            for cell in row:
+                for pc in all_probability:
+                    if cell.row == pc[1].row and cell.col == pc[1].col:
+                        continue
+                num_cells = len(kb_original.knowledge_base) * len(kb_original.knowledge_base[0])
+                probability = (num_cells - cells_w_clues) / (mines_in_game - mines_found)
     return all_probability
 
 def min_cost(game, kb_original):
-    probs = get_all_probability(kb_original)
+    probs = get_all_probability(game, kb_original)
 
     if probs is None:
         rand_choice(game, kb_original)
@@ -293,7 +355,7 @@ def min_cost(game, kb_original):
         cell = random.choice(cells_w_least_prob)
         kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 
-def get_expected_knowledge(kb_original, type, cell):
+def get_expected_knowledge(game, kb_original, t, cells):
 
     # kb = copy.deepcopy(kb_original)
 
@@ -302,54 +364,12 @@ def get_expected_knowledge(kb_original, type, cell):
     # kb.manual_add_unsafe(kb_original.unsafe)
 
     expected_knowledge = 0
+    for cell in cells:
 
-    if type == "R":
-
-        kb.update(cell.row, cell.col, -1, True)
-
-        action = True
-        # knowledgebase analysis will happen again with the new deductions from each action
-        while action:
-            action = False
-            # List of Lists in unsafe to be removed
-            remove_after = []
-
-            # List of cells that have been flagged and need to be removed
-            update_as_flagged = []
-
-            # Using deductions made in knowledgebase to make choice on which cells can be querried
-            for i in range(len(kb.unsafe)):
-                # Checking each list in Unsafe and seeing if there is 0 mines within those cells
-                if kb.unsafe[i][0] == 0:
-                    action = True
-                    # if there are no mines within those cells it will add them to safe and add them
-                    # to a remove_after list to remove them. Can not remove on the spot because it will mess up the for loop
-                    remove_after.append(kb.unsafe[i])
-                    for j in range(1, len(kb.unsafe[i])):
-                        expected_knowledge += 1
-                        kb.safe.append(kb.unsafe[i][j])
-
-                # If there is still mines within those cells it will check if the number of cells is equal to the number of
-                # mines. If so it will flag all those cells
-                elif len(kb.unsafe[i][1:]) == kb.unsafe[i][0]:
-                    action = True
-                    # adds to remove after list
-                    remove_after.append(kb.unsafe[i])
-                    # for each cell in the list it will flag those cells
-                    for cell in kb.unsafe[i][1:]:
-                        expected_knowledge += 1
-                        # Add cell to a list so that the KB can be updated
-                        update_as_flagged.append(cell)
-            # Removing all lists in unsafe that need to be removed
-            for i in remove_after:
-                kb.unsafe.remove(i)
-
-            # Updates KB with cells that have been flagged and makes new deductions based on these
-            for cell in update_as_flagged:
-                kb.update(cell.row, cell.col, -1, True)
-    elif type == "S":
-
-        kb.update(cell.row, cell.col, -1, False)
+        if t == "R":
+            kb.update(cell.row, cell.col, -1, True)
+        elif t == "S":
+            kb.update(cell.row, cell.col, -1, False)
 
         action = True
         # knowledgebase analysis will happen again with the new deductions from each action
@@ -395,7 +415,7 @@ def get_expected_knowledge(kb_original, type, cell):
     return expected_knowledge
 
 def min_risk(game, kb_original):
-    probs = get_all_probability(kb_original)
+    probs = get_all_probability(game, kb_original)
 
     if probs is None:
         rand_choice(game, kb_original)
@@ -408,8 +428,8 @@ def min_risk(game, kb_original):
         q = pc[0]
         cell = pc[1]
 
-        R = get_expected_knowledge(kb_original, "R", cell)
-        S = get_expected_knowledge(kb_original, "S", cell)
+        R = get_expected_knowledge(game, kb_original, "R", [cell])
+        S = get_expected_knowledge(game, kb_original, "S", [cell])
 
         expected_knowledge = (q*R) + ((1 - q) * S)
 
@@ -429,7 +449,7 @@ def improved_min_risk(game, kb_original):
     if game.game_over():
         return
 
-    probs = get_all_probability(kb_original)
+    probs = get_all_probability(game, kb_original)
 
     if probs is None:
         rand_choice(game, kb_original)
@@ -440,23 +460,26 @@ def improved_min_risk(game, kb_original):
     for i in range(1, 3):
         combinations = itertools.combinations(probs, i)
         total_expected_knowledge = -1
-        combo = None
+        cells = []
+        total_q = 0
         for combo in combinations:
             for pc in combo:
-                q = pc[0]
+                prob = pc[0]
+                total_q += prob
                 cell = pc[1]
+                cells.append(cell)
 
-                R = get_expected_knowledge(kb_original, "R", cell)
-                S = get_expected_knowledge(kb_original, "S", cell)
+            q = total_q/len(cells)
+            R = get_expected_knowledge(game, kb_original, "R", cells)
+            S = get_expected_knowledge(game, kb_original, "S", cells)
 
-                expected_knowledge = (q * R) + ((1 - q) * S)
-                total_expected_knowledge += expected_knowledge
+            expected_knowledge = (q * R) + ((1 - q) * S)
+            total_expected_knowledge += expected_knowledge
 
-        if total_expected_knowledge > max_expected_knowledge:
-            max_expected_knowledge = total_expected_knowledge
-            combo_w_min_risk = [combo]
-        elif total_expected_knowledge == max_expected_knowledge:
-            if combo is not None:
+            if total_expected_knowledge/i > max_expected_knowledge:
+                max_expected_knowledge = total_expected_knowledge/i
+                combo_w_min_risk = [combo]
+            elif total_expected_knowledge == max_expected_knowledge:
                 combo_w_min_risk.append(combo)
 
         if len(combo_w_min_risk) == 0:
@@ -466,8 +489,11 @@ def improved_min_risk(game, kb_original):
             cell = random.choice(combo)[1]
             kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 
-def improved_min_cost(game, kb_original, num_mines):
-    probs = get_all_probability(kb_original)
+def improved_min_cost(game, kb_original):
+    global mines
+    num_mines = game._num_mines
+    mines_found = len(mines)
+    probs = get_all_probability(game, kb_original, num_mines, mines_found)
 
     if probs is None:
         rand_choice(game, kb_original)
@@ -491,6 +517,7 @@ def improved_min_cost(game, kb_original, num_mines):
         kb_original.safe.append(kb_original.knowledge_base[cell.row][cell.col])
 # for graphics: will update full screen
 def game_full_update(game):
+    # return
     game_updated = game.draw(screen_size)
     pygame.display.set_mode((game_updated.get_size()[0], game_updated.get_size()[1]))
     screen.blit(game_updated, ORIGIN)
@@ -499,6 +526,7 @@ def game_full_update(game):
 
 # for graphics: will update part of screen specified by the row and col
 def game_update(game, row, col):
+    # return
     ret_draw = game.draw_single(screen_size, row, col)
     game_updated = ret_draw[0]
     img_size = ret_draw[1]
@@ -507,7 +535,55 @@ def game_update(game, row, col):
     pygame.event.get()
 
 
+def test(density):
+    size = 30
+    total_score = 0
+    total_choice = 0
+    num_tests = 100
+    density_v_score = []
+    density_v_average = []
+    for i in range(num_tests):
+        print(i)
+        game = Minesweeper(size, int((size ** 2) * density))
+        game_full_update(game)
+
+        score = basic_agent(game, min_risk)
+
+        total_choice += decision_func_counter
+        total_score += score
+
+
+    score = total_score / num_tests
+    average = total_choice / num_tests
+    print("Improved Min Cost " + str(density) + "\n"
+          "Density VS Score -- " + str(density) + "\n" +
+          str(density) + ", " + str(score) + "\n" +
+          "Density VS Average Risk -- " + str(density) + "\n" +
+          str(density) + ", " + str(average) + "\n")
+
+    total_score = 0
+    total_choice = 0
+
+    pygame.quit()
+    quit()
+
 if __name__ == '__main__':
+
+    # density = 0
+    # pros = []
+    # while density <= 1:
+    #     # test(density)
+    #     p = Process(target=test, args=(density,))
+    #     p.start()
+    #     pros.append(p)
+    #     # density += .05
+    #     # density = round(density, 2)
+    #     density = 2
+    # for p in pros:
+    #     p.join()
+    #
+    # pygame.quit()
+    # quit()
 
     try:
         ipt = int(input("To run a single game of minesweeper enter 0 "
@@ -522,7 +598,8 @@ if __name__ == '__main__':
                 cfunc = int(input("To run the game using random choice enter 0"
                                 "\nTo run the game using min cost enter 1"
                                 "\nTo run the game using min risk enter 2"
-                                "\nTo run the game using Improved min risk enter 3 \n"))
+                                "\nTo run the game using Improved min risk enter 3"
+                                "\nTo run the game using Improved min cost enter 4 \n"))
                 is_set = True
             except ValueError:
                 print("Incorrect Entry")
@@ -553,6 +630,8 @@ if __name__ == '__main__':
             score = basic_agent(game, min_risk)
         elif cfunc == 3:
             score = basic_agent(game, improved_min_risk)
+        elif cfunc == 4:
+            score = basic_agent(game, improved_min_cost)
         else:
             print("Quiting")
             pygame.quit()
@@ -601,6 +680,10 @@ if __name__ == '__main__':
                     score = basic_agent(game, min_cost)
                 elif cfunc == 2:
                     score = basic_agent(game, min_risk)
+                elif cfunc == 3:
+                    score = basic_agent(game, improved_min_risk)
+                elif cfunc == 4:
+                    score = basic_agent(game, improved_min_cost)
                 else:
                     print("Quiting")
                     pygame.quit()
@@ -628,43 +711,3 @@ if __name__ == '__main__':
     pygame.quit()
     quit()
 
-    # cfunc = 2
-    # metric = 0
-    # size = 30
-    # density = 1
-    # total_score = 0
-    # total_choice = 0
-    # num_tests = 100
-    # if metric == 0:
-    #     print("Density VS Score -- " + str(density))
-    # else:
-    #     print("Density VS Average Risk -- " + str(density))
-    # for i in range(num_tests):
-    #     game = Minesweeper(size, int((size ** 2) * density))
-    #     game_full_update(game)
-    #
-    #     if cfunc == 0:
-    #         score = basic_agent(game, rand_choice)
-    #     elif cfunc == 1:
-    #         score = basic_agent(game, min_cost)
-    #     elif cfunc == 2:
-    #         score = basic_agent(game, min_risk)
-    #     else:
-    #         print("Quiting")
-    #         pygame.quit()
-    #         quit()
-    #     total_choice += decision_func_counter
-    #     total_score += score
-    # if metric == 0:
-    #     print(str(density) + ", " + str(total_score / num_tests))
-    # elif metric == 1:
-    #     print(str(density) + ", " + str(total_choice / num_tests))
-    # total_score = 0
-    # total_choice = 0
-    #
-    # running = True
-    # while running:
-    #     for event in pygame.event.get():
-    #         # print(event)
-    #         if event.type == pygame.QUIT:
-    #             running = False
